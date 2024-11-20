@@ -20,6 +20,9 @@ def load_data_from_db():
 # Carregar dados iniciais
 df = load_data_from_db()
 
+# Remover os dados da linha "Ano" para gráficos mensais
+df_mensal = df[df['mes'] != 'Ano']
+
 # Layout do Dash
 app.layout = html.Div([
     html.H1('Dashboard de Inflação (IPCA)', style={'textAlign': 'center'}),
@@ -37,27 +40,29 @@ app.layout = html.Div([
         html.Label('Selecione o Mês:'),
         dcc.Dropdown(
             id='mes-dropdown',
-            options=[{'label': mes, 'value': mes} for mes in df['mes'].unique()],
+            options=[{'label': mes, 'value': mes} for mes in df_mensal['mes'].unique()],
             value=None,  # Todos os meses por padrão
             multi=True,  # Permite selecionar múltiplos meses
             style={'width': '48%', 'display': 'inline-block'}
         ),
     ], style={'padding': '20px'}),
     
-    # Gráfico de Inflação
+    # Gráfico de Inflação Mensal
     dcc.Graph(id='grafico-ipca'),
     
+    # Gráfico de Acumulado Anual
+    dcc.Graph(id='grafico-acumulado-anual'),
 ])
 
-# Função callback para atualizar o gráfico com base nos filtros
+# Função callback para atualizar o gráfico mensal
 @app.callback(
     Output('grafico-ipca', 'figure'),
     [Input('ano-dropdown', 'value'),
      Input('mes-dropdown', 'value')]
 )
-def update_graph(ano, meses):
+def update_mensal_graph(ano, meses):
     # Filtrar os dados com base no ano e mês
-    filtered_df = df[df['ano'] == ano]
+    filtered_df = df_mensal[df_mensal['ano'] == ano]
     
     if meses:
         filtered_df = filtered_df[filtered_df['mes'].isin(meses)]
@@ -65,7 +70,7 @@ def update_graph(ano, meses):
     # Criar o gráfico com Plotly Express
     fig = px.line(
         filtered_df, x='mes', y='indice',
-        title=f'IPCA para o Ano {ano}',
+        title=f'IPCA Mensal para o Ano {ano}',
         labels={'indice': 'Índice de Inflação (%)', 'mes': 'Mês'},
         markers=True
     )
@@ -74,7 +79,33 @@ def update_graph(ano, meses):
     fig.update_layout(
         xaxis_title='Mês',
         yaxis_title='Índice de Inflação (%)',
-        xaxis=dict(tickmode='array', tickvals=filtered_df['mes']),
+        template='plotly_dark'
+    )
+    
+    return fig
+
+# Função callback para o gráfico de acumulado anual
+@app.callback(
+    Output('grafico-acumulado-anual', 'figure'),
+    [Input('ano-dropdown', 'value')]
+)
+def update_acumulado_graph(ano):
+    # Filtrar o acumulado anual
+    filtered_df = df[df['mes'] == 'Ano']
+    filtered_df = filtered_df[filtered_df['ano'] == ano]
+    
+    # Criar o gráfico de barras para o acumulado anual
+    fig = px.bar(
+        filtered_df, x='ano', y='indice',
+        title=f'IPCA Acumulado Anual ({ano})',
+        labels={'indice': 'Índice Acumulado (%)', 'ano': 'Ano'},
+        text='indice'
+    )
+    
+    # Configurações do gráfico
+    fig.update_layout(
+        xaxis_title='Ano',
+        yaxis_title='Índice Acumulado (%)',
         template='plotly_dark'
     )
     
@@ -83,4 +114,3 @@ def update_graph(ano, meses):
 # Rodar o servidor
 if __name__ == '__main__':
     app.run_server(debug=True)
-

@@ -40,15 +40,15 @@ def load_csv_to_db(csv_file):
         
         # Processando cada linha do CSV
         for row in reader:
-            # O ano está na primeira coluna
-            ano = row[0]
-            try:
-                ano = int(ano)  # Convertendo o ano para inteiro
-            except ValueError:
-                continue  # Caso o valor não seja válido, ignora essa linha
+            # Ignorar linhas sem ano ou dados inválidos
+            if not row[0].strip().isdigit():
+                continue  # Pula linhas com dados inválidos no início
             
-            # Processando os meses, ignorando a última coluna (ano acumulado)
-            for i, mes in enumerate(header[:-1]):  # Ignora a última coluna 'Ano'
+            # O ano está na primeira coluna
+            ano = int(row[0])
+            
+            # Processando os meses (até a penúltima coluna)
+            for i, mes in enumerate(header[1:-1]):  # Ignorar última coluna "Ano"
                 indice = row[i + 1]  # Começa da segunda coluna (índices mensais)
                 if indice != '--':  # Ignora os valores '--'
                     indice_float = convert_to_float(indice)
@@ -57,6 +57,16 @@ def load_csv_to_db(csv_file):
                             INSERT INTO ipca (mes, ano, indice)
                             VALUES (?, ?, ?)
                         ''', (mes, ano, indice_float))
+            
+            # Processar o acumulado anual (última coluna)
+            acumulado = row[-1]  # Última coluna contém o acumulado anual
+            if acumulado != '--':  # Ignora os valores '--'
+                acumulado_float = convert_to_float(acumulado)
+                if acumulado_float is not None:
+                    cursor.execute('''
+                        INSERT INTO ipca (mes, ano, indice)
+                        VALUES (?, ?, ?)
+                    ''', ('Ano', ano, acumulado_float))  # "Ano" usado como identificador especial
     
     conn.commit()
     conn.close()
